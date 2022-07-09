@@ -1,0 +1,39 @@
+# https://github.com/pyg-team/pytorch_geometric/blob/d220afee9d4e826bfb7cf4eaddcaddfbec71ee34/torch_geometric/nn/dense/dense_sage_conv.py#L6
+class DenseSAGEConv(torch.nn.Module):
+
+    def __init__(self, in_channels, out_channels, normalize=False, bias=True):
+        super().__init__()
+
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.normalize = normalize
+
+        self.lin_rel = Linear(in_channels, out_channels, bias=False)
+        self.lin_root = Linear(in_channels, out_channels, bias=bias)
+
+    def forward(self, x, adj, mask=None):
+        # x: [B, N, iD]或者[N, iD], 节点特征
+        # adj: [B, N, N]或者[N, N]，邻接矩阵
+        # mask: [B, N]，需要屏蔽的节点
+        
+        # batch维度扩充
+        x = x.unsqueeze(0) if x.dim() == 2 else x 
+        adj = adj.unsqueeze(0) if adj.dim() == 2 else adj
+        B, N, _ = adj.size()
+
+        out = torch.matmul(adj, x) # [B, N, N] [B, N, iD] -> [B, N, iD]
+        # adj.sum(dim=-1, keepdim=True)表示计算每个节点的度
+        # 最后使用clamp(min=1)操作保证每个节点的度至少为1（如果小于1则置为1），保证除数不为0
+        out = out / adj.sum(dim=-1, keepdim=True).clamp(min=1) # [B, N, iD]
+        
+        out = self.lin_rel(out) + self.lin_root(x) # ([B, N, D]->[B, N, oD]) + ([B, N, iD]->[B, N, oD]) -> [B, N, oD]
+
+        if self.normalize:
+            out = F.normalize(out, p=2, dim=-1)  # 在特征维度上使用二范数归一化
+
+        if mask is not None:
+            out = out * mask.view(B, N, 1).to(x.dtype) # 屏蔽特定节点
+
+        return out
+#-------------------------------------------------------------
+
