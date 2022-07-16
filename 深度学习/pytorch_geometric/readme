@@ -1,0 +1,2 @@
+离线包：https://pytorch-geometric.com/whl/
+当无法使用pip或者conda直接在线安装或者不清楚torch_geometric相关包的版本的匹配情况时，可以在该网站上根据自身的pytorch版本下载匹配的各资源，随后使用pip或者conda离线安装即可
