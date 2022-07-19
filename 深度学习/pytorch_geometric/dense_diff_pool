@@ -34,6 +34,9 @@ def dense_diff_pool(x, adj, s, mask=None, normalize=True):
     out_adj = torch.matmul(torch.matmul(s.transpose(1, 2), adj), s)
     
     # 下面两个loss是防止训练早期整体模型掉入局部最优
+    # 首先理解assignment分配矩阵s的含义：s，[K, PI]，将K个节点聚类到PI个cluster中。s[i]表示第i个节点的聚类概率分布logits
+    # 再理解M = torch.matmul(s, s.transpose(1, 2))的含义：M[K, K]，由于在上面已经对s做了softmax，因此此时s就是一个聚类概率分布，所有M[i, j]衡量着s[i]与s[j]聚类概率分布的相似性。所以整个M就是一个所有节点聚类概率分布的相似度矩阵。
+    # 最后再理解link_loss：强制节点聚类概率分布相似度与邻接矩阵足够相似。如果邻接矩阵是基于距离生成的，那么就可以实现将距离最够近的节点聚类的目的。
     link_loss = adj - torch.matmul(s, s.transpose(1, 2))  # link prediction objective loss
     link_loss = torch.norm(link_loss, p=2)
     if normalize is True:
